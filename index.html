@@ -1,0 +1,1589 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analysis Portal - Professional Reports</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #f8fafb 0%, #ffffff 50%, #f1f5f9 100%);
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Subtle background pattern */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(120, 119, 198, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(120, 119, 198, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+            padding: 40px 0;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #1e40af 100%);
+            border-radius: 20px;
+            color: white;
+            box-shadow: 0 20px 60px rgba(30, 58, 138, 0.15);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            transform: rotate(45deg);
+            pointer-events: none;
+        }
+
+        .header h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 1;
+        }
+
+        .header .subtitle {
+            font-size: 1.3rem;
+            font-weight: 400;
+            opacity: 0.95;
+            letter-spacing: 0.5px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .firebase-status {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(20px);
+            padding: 12px 20px;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            opacity: 0;
+            transform: translateX(-100px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .firebase-status.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .firebase-status.error {
+            background: rgba(254, 242, 242, 0.95);
+            color: #dc2626;
+            border-color: rgba(220, 38, 38, 0.2);
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            margin-bottom: 40px;
+            background: white;
+            padding: 8px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            border: 1px solid rgba(0,0,0,0.05);
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-bottom: 40px;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: none;
+            color: #64748b;
+            padding: 18px 32px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 16px;
+            font-weight: 600;
+            position: relative;
+            flex: 1;
+            text-align: center;
+            min-width: 0;
+        }
+
+        .nav-btn:hover {
+            color: #1e40af;
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            box-shadow: 0 4px 20px rgba(30, 58, 138, 0.3);
+        }
+
+        .section {
+            display: none;
+            background: white;
+            padding: 50px;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.06);
+            border: 1px solid rgba(0,0,0,0.04);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 50%, #1e40af 100%);
+        }
+
+        .section.active {
+            display: block;
+            animation: slideInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section h2 {
+            color: #1e3a8a;
+            margin-bottom: 40px;
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            position: relative;
+            letter-spacing: -0.025em;
+        }
+
+        .section h2::after {
+            content: '';
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #1e40af);
+            border-radius: 2px;
+        }
+
+        .form-group {
+            margin-bottom: 32px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 12px;
+            font-weight: 600;
+            color: #374151;
+            font-size: 1rem;
+            letter-spacing: 0.025em;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 18px 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #fafbfc;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.025em;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(30, 58, 138, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            padding: 20px 24px;
+            border-radius: 12px;
+            margin: 24px 0;
+            font-weight: 600;
+            border-left: 4px solid;
+            animation: fadeIn 0.5s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .success {
+            background: rgba(220, 252, 231, 0.8);
+            color: #065f46;
+            border-color: #10b981;
+        }
+
+        .error {
+            background: rgba(254, 242, 242, 0.8);
+            color: #dc2626;
+            border-color: #ef4444;
+        }
+
+        .info {
+            background: rgba(239, 246, 255, 0.8);
+            color: #1e40af;
+            border-color: #3b82f6;
+        }
+
+        .card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            border-color: #cbd5e1;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-pending {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            color: #92400e;
+        }
+
+        .status-completed {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            color: #166534;
+        }
+
+        .payment-section {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 40px;
+            border-radius: 20px;
+            margin: 32px 0;
+            border: 1px solid #e2e8f0;
+            position: relative;
+        }
+
+        .payment-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, #10b981, #059669);
+            border-radius: 20px 20px 0 0;
+        }
+
+        .price-display {
+            text-align: center;
+            margin: 30px 0;
+            padding: 30px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            border-radius: 16px;
+            color: white;
+        }
+
+        .price-amount {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .price-description {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .payment-method {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 32px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .payment-method::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #1e40af);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .payment-method:hover::before,
+        .payment-method.selected::before {
+            transform: scaleX(1);
+        }
+
+        .payment-method:hover {
+            border-color: #3b82f6;
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.15);
+        }
+
+        .payment-method.selected {
+            border-color: #1e3a8a;
+            background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(30, 58, 138, 0.2);
+        }
+
+        .payment-method h4 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #1e3a8a;
+            margin-bottom: 8px;
+        }
+
+        .payment-method p {
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .upi-details {
+            background: linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 100%);
+            border: 2px solid #10b981;
+            border-radius: 16px;
+            padding: 32px;
+            margin: 24px 0;
+            display: none;
+            text-align: center;
+        }
+
+        .upi-id {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #065f46;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255,255,255,0.8);
+            border-radius: 12px;
+            border: 2px dashed #10b981;
+            letter-spacing: 0.5px;
+        }
+
+        .copy-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+        }
+
+        .payment-note {
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+            border: 1px solid #f59e0b;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            color: #92400e;
+            font-weight: 600;
+        }
+
+        .upload-area {
+            border: 3px dashed #3b82f6;
+            border-radius: 20px;
+            padding: 60px 40px;
+            text-align: center;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area:hover {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border-color: #1e3a8a;
+            transform: scale(1.02);
+        }
+
+        .upload-area.dragover {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border-color: #1e3a8a;
+            transform: scale(1.05);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .report-viewer {
+            width: 100%;
+            height: 700px;
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            margin-top: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
+            margin-top: 40px;
+        }
+
+        .stats-card {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 40px 32px;
+            border-radius: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .stats-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            transform: rotate(45deg);
+            pointer-events: none;
+        }
+
+        .stats-card:hover {
+            transform: translateY(-8px);
+        }
+
+        .stats-number {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            position: relative;
+            z-index: 1;
+        }
+
+        .stats-label {
+            font-size: 1.1rem;
+            font-weight: 500;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .notification {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            border: 1px solid rgba(0,0,0,0.1);
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: 400px;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #ffffff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Enhanced form styling */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .input-icon {
+            position: relative;
+        }
+
+        .input-icon::before {
+            content: attr(data-icon);
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: #64748b;
+            z-index: 1;
+        }
+
+        .input-icon input {
+            padding-left: 48px;
+        }
+
+        /* Admin Panel Enhancements */
+        .admin-header {
+            background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+            color: white;
+            padding: 32px;
+            border-radius: 16px;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        .admin-section {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 32px;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+            
+            .header {
+                padding: 32px 20px;
+                margin-bottom: 32px;
+            }
+            
+            .header h1 {
+                font-size: 2.5rem;
+            }
+            
+            .nav-buttons {
+                flex-direction: column;
+                max-width: none;
+                gap: 8px;
+            }
+            
+            .nav-btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .section {
+                padding: 32px 24px;
+            }
+            
+            .section h2 {
+                font-size: 2rem;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            .payment-methods {
+                grid-template-columns: 1fr;
+            }
+            
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .price-amount {
+                font-size: 2.5rem;
+            }
+            
+            .stats-number {
+                font-size: 2.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .section {
+                padding: 24px 16px;
+            }
+            
+            .payment-section {
+                padding: 24px;
+            }
+            
+            .price-amount {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="firebaseStatus" class="firebase-status">
+        🔄 Connecting to Firebase...
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>📈 Avigna Stock Analysis Portal 📈</h1>
+            <p class="subtitle">Stock Analysis Reports Portal • Expert Insights • 24-Hour Delivery</p>
+        </div>
+
+        <div class="nav-buttons">
+            <button class="nav-btn active" onclick="showSection('request')">
+                📝 Request Analysis
+            </button>
+            <button class="nav-btn" onclick="showSection('access')">
+                🔍 Access Report
+            </button>
+            <button class="nav-btn" onclick="showSection('admin')">
+                ⚙️ Admin Panel
+            </button>
+        </div>
+
+        <!-- Request Analysis Section -->
+        <div id="request" class="section active">
+            <h2>📊 Request Professional Stock Analysis</h2>
+            <form id="requestForm">
+                <div class="form-group">
+                    <label for="clientPhone">📱 WhatsApp Number</label>
+                    <div class="input-icon" data-icon="📱">
+                        <input type="tel" id="clientPhone" placeholder="+91-9876543210" required pattern="[\+]?[0-9\-\s\(\)]+" title="Please enter a valid phone number">
+                    </div>
+                    <small style="color: #64748b; margin-top: 8px; display: block; font-weight: 500;">
+                        Report ID will be sent to this WhatsApp number
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="companyName">🏢 Company/Stock Symbol</label>
+                    <div class="input-icon" data-icon="🏢">
+                        <input type="text" id="companyName" placeholder="e.g., RELIANCE, TCS, INFY, HDFCBANK" required>
+                    </div>
+                    <small style="color: #64748b; margin-top: 8px; display: block; font-weight: 500;">
+                        Enter NSE/BSE stock symbol or company name
+                    </small>
+                </div>
+
+                <div class="payment-section">
+                    <h3 style="color: #1e3a8a; font-size: 1.5rem; font-weight: 700; margin-bottom: 20px; text-align: center;">💳 Payment Information</h3>
+                    
+                    <div class="price-display">
+                        <div class="price-amount">₹199 only</div>
+                        <div class="price-description">Professional Stock Analysis Report</div>
+                    </div>
+
+                    <div class="payment-methods">
+                        <div class="payment-method" data-method="upi" onclick="selectPaymentMethod('upi')">
+                            <h4>📱 UPI Payment</h4>
+                            <p>PhonePe, GPay, Paytm</p>
+                        </div>
+                        <div class="payment-method" data-method="banking" onclick="selectPaymentMethod('banking')">
+                            <h4>🏦 Net Banking</h4>
+                            <p>All major banks</p>
+                        </div>
+                    </div>
+
+                    <!-- UPI Payment Details -->
+                    <div id="upiDetails" class="upi-details">
+                        <h4>📱 Pay via UPI</h4>
+                        <p>Send ₹199 to the following UPI ID:</p>
+                        <div class="upi-id" id="upiId">prathameshdshirguppe@oksbi</div>
+                        <button type="button" class="copy-btn" onclick="copyUpiId()">📋 Copy UPI ID</button>
+                        <div class="payment-note">
+                            <strong>⚠️ Important:</strong> After payment, click "Confirm Payment" below to complete your order. If the payment isn't confirmed then report will not be visible!
+                        </div>
+                    </div>
+
+                    <!-- Banking Details -->
+                    <div id="bankingDetails" class="upi-details">
+                        <h4>🏦 Bank Transfer Details</h4>
+                        <div style="text-align: left; margin: 15px 0;">
+                            <p><strong>Account Name:</strong> Avigna Fintech Capital (Prathamesh Dattatray Shirguppe)</p>
+                            <p><strong>Account Number:</strong> 0481104000165747</p>
+                            <p><strong>IFSC Code:</strong> IBKL0000481</p>
+                            <p><strong>Bank:</strong> IDBI Bank</p>
+                            <p><strong>Amount:</strong> ₹199</p>
+                        </div>
+                        <button type="button" class="copy-btn" onclick="copyBankDetails()">📋 Copy Bank Details</button>
+                        <div class="payment-note">
+                            <strong>⚠️ Important:</strong> After payment, click "Confirm Payment" below to complete your order. If the payment isn't confirmed then report will not be visible!
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn" id="paymentBtn" disabled>
+                    ✅ Confirm Payment & Submit Order
+                </button>
+            </form>
+            <div id="requestMessage"></div>
+        </div>
+
+        <!-- Access Report Section -->
+        <div id="access" class="section">
+            <h2>🔍 Access Your Analysis Report</h2>
+            <form id="accessForm">
+                <div class="form-group">
+                    <label for="reportId">🔑 Report ID</label>
+                    <input type="text" id="reportId" placeholder="Enter Report ID (e.g., AFC-FUOYTOUA)" required style="text-transform: uppercase;">
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        🔒 Enter the unique Report ID sent to your WhatsApp number
+                    </small>
+                </div>
+                <button type="submit" class="btn">
+                    🔍 Access My Report
+                </button>
+            </form>
+            <div id="accessMessage"></div>
+            <div id="reportDisplay" style="display: none;">
+                <div id="reportInfo"></div>
+                <iframe id="reportViewer" class="report-viewer" src=""></iframe>
+                <div style="margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap;">
+                    <button onclick="downloadReport()" class="btn" style="width: auto; flex: 1; min-width: 200px;">
+                        📥 Download PDF Report
+                    </button>
+                    <button onclick="shareReport()" class="btn" style="width: auto; flex: 1; min-width: 200px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+                        📤 Share Report Link
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel Section -->
+        <div id="admin" class="section">
+            <div style="max-width: 400px; margin: 0 auto 30px;">
+                <div class="form-group">
+                    <label for="adminPassword">🔐 Admin Password</label>
+                    <input type="password" id="adminPassword" placeholder="Enter Admin Password">
+                </div>
+                <button onclick="adminLogin()" class="btn">
+                    🔓 Access Admin Dashboard
+                </button>
+            </div>
+
+            <div id="adminContent" style="display: none;">
+                <h2>📊 Admin Dashboard</h2>
+                
+                <!-- Stats Dashboard -->
+                <div class="grid">
+                    <div class="stats-card">
+                        <div class="stats-number" id="totalOrders">0</div>
+                        <div>Total Orders</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-number" id="pendingOrders">0</div>
+                        <div>Pending Analysis</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-number" id="completedOrders">0</div>
+                        <div>Completed Reports</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-number" id="totalRevenue">₹0</div>
+                        <div>Total Revenue</div>
+                    </div>
+                </div>
+
+                <!-- Pending Orders Section -->
+                <h3 style="margin-top: 40px; color: #333; font-size: 1.8rem;">⏳ Pending Analysis Orders</h3>
+                <div id="pendingOrdersList"></div>
+
+                <!-- Report Upload Section -->
+                <h3 style="margin-top: 40px; color: #333; font-size: 1.8rem;">📤 Upload Completed Analysis</h3>
+                <div class="upload-area" id="uploadArea">
+                    <div>
+                        <h4 style="font-size: 1.5rem; margin-bottom: 15px;">📁 Upload PDF Report</h4>
+                        <p style="font-size: 1.1rem; color: #666;">Drop your completed analysis PDF here or click to browse</p>
+                        <p style="font-size: 0.9rem; color: #888; margin-top: 10px;">Supported format: PDF only • Max size: 10MB</p>
+                    </div>
+                    <input type="file" id="pdfFile" class="file-input" accept=".pdf">
+                </div>
+                <div id="uploadMessage"></div>
+
+                <!-- All Reports Section -->
+                <h3 style="margin-top: 40px; color: #333; font-size: 1.8rem;">📚 All Analysis Reports</h3>
+                <div id="allReportsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+    		apiKey: "AIzaSyBpbZegZKZPAIYIVAw5-QtWwV2WZPdCPcc",
+    		authDomain: "stock-analysis-portal-b30a9.firebaseapp.com",
+    		projectId: "stock-analysis-portal-b30a9",
+    		storageBucket: "stock-analysis-portal-b30a9.firebasestorage.app",
+    		messagingSenderId: "523596189045",
+    		appId: "1:523596189045:web:0e829385809309cedd573c",
+    		measurementId: "G-B19VK8N6RL"
+  	};
+
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Application state
+        let selectedPaymentMethod = '';
+        let isFirebaseConnected = false;
+        let currentAdminSession = false;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            testFirebaseConnection();
+            checkUrlParameters();
+        });
+
+        function setupEventListeners() {
+            // Form submissions
+            document.getElementById('requestForm').addEventListener('submit', handleAnalysisRequest);
+            document.getElementById('accessForm').addEventListener('submit', handleReportAccess);
+
+            // File upload
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('pdfFile');
+            
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('drop', handleFileDrop);
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Input formatting
+            document.getElementById('reportId').addEventListener('input', function(e) {
+                e.target.value = e.target.value.toUpperCase();
+            });
+        }
+
+        function testFirebaseConnection() {
+            const statusElement = document.getElementById('firebaseStatus');
+            
+            try {
+                // Initialize Firebase if not already done
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                
+                // Test Firebase connection with a simple operation
+                database.ref('.info/connected').on('value', function(snapshot) {
+                    if (snapshot.val() === true) {
+                        isFirebaseConnected = true;
+                        statusElement.textContent = '✅ Server Connected';
+                        statusElement.classList.remove('error');
+                        statusElement.classList.add('show');
+                        setTimeout(() => statusElement.classList.remove('show'), 3000);
+                    } else {
+                        isFirebaseConnected = false;
+                        statusElement.textContent = '❌ Server Disconnected';
+                        statusElement.classList.add('show', 'error');
+                    }
+                });
+                
+                // Also try a simple read operation
+                database.ref('connection_test').set({
+                    timestamp: Date.now(),
+                    status: 'testing'
+                }).then(() => {
+                    console.log('Firebase write test successful');
+                }).catch((error) => {
+                    console.error('Firebase write test failed:', error);
+                });
+                
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                statusElement.textContent = '❌ Server Init Failed';
+                statusElement.classList.add('show', 'error');
+                
+                // Show detailed error for debugging
+                setTimeout(() => {
+                    statusElement.textContent = `❌ Error: ${error.message}`;
+                }, 2000);
+            }
+        }
+
+        function checkUrlParameters() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const reportId = urlParams.get('report');
+            if (reportId) {
+                showSection('access');
+                document.getElementById('reportId').value = reportId;
+            }
+        }
+
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // Remove active class from all nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected section
+            document.getElementById(sectionId).classList.add('active');
+
+            // Find and activate the correct nav button
+            const navButtons = document.querySelectorAll('.nav-btn');
+            navButtons.forEach(btn => {
+                if (btn.textContent.toLowerCase().includes(sectionId === 'request' ? 'request' : 
+                    sectionId === 'access' ? 'access' : 'admin')) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Load admin data if accessing admin section
+            if (sectionId === 'admin' && currentAdminSession) {
+                loadAdminDashboard();
+            }
+        }
+
+        function selectPaymentMethod(method) {
+            selectedPaymentMethod = method;
+
+            // Remove selected class from all payment methods
+            document.querySelectorAll('.payment-method').forEach(pm => {
+                pm.classList.remove('selected');
+            });
+
+            // Add selected class to clicked method
+            event.target.closest('.payment-method').classList.add('selected');
+
+            // Hide all payment details
+            document.getElementById('upiDetails').style.display = 'none';
+            document.getElementById('bankingDetails').style.display = 'none';
+
+            // Show selected payment details
+            if (method === 'upi') {
+                document.getElementById('upiDetails').style.display = 'block';
+            } else if (method === 'banking') {
+                document.getElementById('bankingDetails').style.display = 'block';
+            } 
+
+            // Enable payment button
+            document.getElementById('paymentBtn').disabled = false;
+        }
+
+        function copyUpiId() {
+            const upiId = document.getElementById('upiId').textContent;
+            navigator.clipboard.writeText(upiId).then(() => {
+                showNotification('✅ UPI ID copied to clipboard!', 'success');
+            }).catch(() => {
+                showNotification('❌ Failed to copy UPI ID', 'error');
+            });
+        }
+
+        function copyBankDetails() {
+            const bankDetails = `Account Name: Avigna Fintech Capital (Prathamesh Dattatray Shirguppe)
+Account Number: 0481104000165747
+IFSC Code: IBKL0000481
+Bank: IDBI Bank
+Amount: ₹199`;
+            
+            navigator.clipboard.writeText(bankDetails).then(() => {
+                showNotification('✅ Bank details copied to clipboard!', 'success');
+            }).catch(() => {
+                showNotification('❌ Failed to copy bank details', 'error');
+            });
+        }
+
+        async function handleAnalysisRequest(e) {
+            e.preventDefault();
+            
+            if (!isFirebaseConnected) {
+                showMessage('requestMessage', '❌ Firebase connection failed. Please refresh the page.', 'error');
+                return;
+            }
+
+            if (!selectedPaymentMethod) {
+                showMessage('requestMessage', '❌ Please select a payment method.', 'error');
+                return;
+            }
+
+            const phoneNumber = document.getElementById('clientPhone').value.trim();
+            const companyName = document.getElementById('companyName').value.trim();
+
+            if (!phoneNumber || !companyName) {
+                showMessage('requestMessage', '❌ Please fill in all required fields.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('paymentBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="loading"></span> Processing...';
+            btn.disabled = true;
+
+            try {
+                // Generate unique report ID
+                const reportId = 'AFC-' + Math.random().toString(36).substr(2, 8).toUpperCase();
+                const timestamp = new Date().toISOString();
+
+                // Create order data
+                const orderData = {
+                    reportId: reportId,
+                    phoneNumber: phoneNumber,
+                    companyName: companyName,
+                    paymentMethod: selectedPaymentMethod,
+                    status: 'pending',
+                    orderDate: timestamp,
+                    amount: 199
+                };
+
+                // Save to Firebase
+                await database.ref('orders/' + reportId).set(orderData);
+
+                // Show success message
+                showMessage('requestMessage', `
+                    <div style="text-align: center;">
+                        <h3 style="color: #28a745; margin-bottom: 15px;">✅ Order Submitted Successfully!</h3>
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 15px 0;">
+                            <p><strong>📋 Report ID:</strong> <span style="font-size: 1.2em; color: #1e3c72; font-weight: bold;">${reportId}</span></p>
+                            <p><strong>📱 WhatsApp:</strong> ${phoneNumber}</p>
+                            <p><strong>🏢 Company:</strong> ${companyName}</p>
+                            <p><strong>💳 Payment:</strong> ${selectedPaymentMethod.toUpperCase()}</p>
+                        </div>
+                        <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                            <p><strong>📞 Next Steps:</strong></p>
+                            <p>1. Save your Report ID: <strong>${reportId}</strong></p>
+                            <p>2. Complete payment using selected method</p>
+                            <p>3. Your analysis will be ready within 24 hours</p>
+                            <p>4. Use "Access Report" section with your Report ID</p>
+                        </div>
+                    </div>
+                `, 'success');
+
+                // Reset form
+                document.getElementById('requestForm').reset();
+                selectedPaymentMethod = '';
+                document.querySelectorAll('.payment-method').forEach(pm => pm.classList.remove('selected'));
+                document.querySelectorAll('.upi-details').forEach(detail => detail.style.display = 'none');
+
+                // Send notification
+                showNotification(`✅ Order created! Report ID: ${reportId}`, 'success');
+
+            } catch (error) {
+                console.error('Error submitting order:', error);
+                showMessage('requestMessage', '❌ Failed to submit order. Please try again.', 'error');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = true;
+            }
+        }
+
+        async function handleReportAccess(e) {
+            e.preventDefault();
+            
+            const reportId = document.getElementById('reportId').value.trim().toUpperCase();
+            
+            if (!reportId) {
+                showMessage('accessMessage', '❌ Please enter a Report ID.', 'error');
+                return;
+            }
+
+            const btn = e.target.querySelector('.btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="loading"></span> Searching...';
+            btn.disabled = true;
+
+            try {
+                // Get order data from Firebase
+                const snapshot = await database.ref('orders/' + reportId).once('value');
+                const orderData = snapshot.val();
+
+                if (!orderData) {
+                    showMessage('accessMessage', '❌ Report ID not found. Please check your Report ID.', 'error');
+                    return;
+                }
+
+                if (orderData.status === 'pending') {
+                    showMessage('accessMessage', `
+                        <div style="text-align: center;">
+                            <h3 style="color: #856404;">⏳ Analysis in Progress</h3>
+                            <div style="background: #fff3cd; padding: 20px; border-radius: 10px; margin: 15px 0;">
+                                <p><strong>📋 Report ID:</strong> ${reportId}</p>
+                                <p><strong>🏢 Company:</strong> ${orderData.companyName}</p>
+                                <p><strong>📅 Order Date:</strong> ${new Date(orderData.orderDate).toLocaleDateString()}</p>
+                                <p><strong>⏰ Status:</strong> Analysis in progress</p>
+                            </div>
+                            <p>🔄 Your analysis is being prepared by our experts.</p>
+                            <p>📱 You'll receive a notification when it's ready (within 24 hours).</p>
+                        </div>
+                    `, 'info');
+                    return;
+                }
+
+                if (orderData.status === 'completed' && orderData.reportUrl) {
+                    // Display the report
+                    displayReport(orderData);
+                    showMessage('accessMessage', '✅ Report loaded successfully!', 'success');
+                } else {
+                    showMessage('accessMessage', '⚠️ Report is ready but file not found. Please contact support.', 'error');
+                }
+
+            } catch (error) {
+                console.error('Error accessing report:', error);
+                showMessage('accessMessage', '❌ Failed to access report. Please try again.', 'error');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function displayReport(orderData) {
+            const reportInfo = document.getElementById('reportInfo');
+            const reportViewer = document.getElementById('reportViewer');
+            const reportDisplay = document.getElementById('reportDisplay');
+
+            reportInfo.innerHTML = `
+                <div class="card">
+                    <h3 style="color: #1e3c72; margin-bottom: 15px;">📊 ${orderData.companyName} - Stock Analysis Report</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div><strong>📋 Report ID:</strong> ${orderData.reportId}</div>
+                        <div><strong>📅 Generated:</strong> ${new Date(orderData.completedDate || orderData.orderDate).toLocaleDateString()}</div>
+                        <div><strong>📱 Client:</strong> ${orderData.phoneNumber}</div>
+                        <div><strong>✅ Status:</strong> <span class="status-badge status-completed">Completed</span></div>
+                    </div>
+                </div>
+            `;
+
+            reportViewer.src = orderData.reportUrl;
+            reportDisplay.style.display = 'block';
+
+            // Store current report data for download/share
+            window.currentReport = orderData;
+        }
+
+        function downloadReport() {
+            if (window.currentReport && window.currentReport.reportUrl) {
+                const link = document.createElement('a');
+                link.href = window.currentReport.reportUrl;
+                link.download = `${window.currentReport.companyName}_Analysis_${window.currentReport.reportId}.pdf`;
+                link.click();
+                showNotification('📥 Download started!', 'success');
+            }
+        }
+
+        function shareReport() {
+            if (window.currentReport) {
+                const shareUrl = `${window.location.origin}${window.location.pathname}?report=${window.currentReport.reportId}`;
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    showNotification('🔗 Share link copied to clipboard!', 'success');
+                }).catch(() => {
+                    showNotification('❌ Failed to copy share link', 'error');
+                });
+            }
+        }
+
+        // Admin Functions
+        function adminLogin() {
+            const password = document.getElementById('adminPassword').value;
+            const correctPassword = '@Avigna2025'; // Change this to your secure password
+
+            if (password === correctPassword) {
+                currentAdminSession = true;
+                document.getElementById('adminContent').style.display = 'block';
+                document.getElementById('adminPassword').value = '';
+                loadAdminDashboard();
+                showNotification('✅ Admin access granted!', 'success');
+            } else {
+                showNotification('❌ Invalid admin password!', 'error');
+            }
+        }
+
+        async function loadAdminDashboard() {
+            try {
+                // Load all orders
+                const snapshot = await database.ref('orders').once('value');
+                const orders = snapshot.val() || {};
+                
+                const ordersList = Object.values(orders);
+                const pendingOrders = ordersList.filter(order => order.status === 'pending');
+                const completedOrders = ordersList.filter(order => order.status === 'completed');
+                const totalRevenue = completedOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
+
+                // Update stats
+                document.getElementById('totalOrders').textContent = ordersList.length;
+                document.getElementById('pendingOrders').textContent = pendingOrders.length;
+                document.getElementById('completedOrders').textContent = completedOrders.length;
+                document.getElementById('totalRevenue').textContent = `₹${totalRevenue}`;
+
+                // Display pending orders
+                displayPendingOrders(pendingOrders);
+                displayAllReports(ordersList);
+
+            } catch (error) {
+                console.error('Error loading admin dashboard:', error);
+                showNotification('❌ Failed to load dashboard data', 'error');
+            }
+        }
+
+        function displayPendingOrders(pendingOrders) {
+            const container = document.getElementById('pendingOrdersList');
+            
+            if (pendingOrders.length === 0) {
+                container.innerHTML = '<div class="card"><p style="text-align: center; color: #666;">No pending orders</p></div>';
+                return;
+            }
+
+            container.innerHTML = pendingOrders.map(order => `
+                <div class="card">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                        <div><strong>📋 Report ID:</strong> ${order.reportId}</div>
+                        <div><strong>🏢 Company:</strong> ${order.companyName}</div>
+                        <div><strong>📱 Phone:</strong> ${order.phoneNumber}</div>
+                        <div><strong>📅 Order Date:</strong> ${new Date(order.orderDate).toLocaleDateString()}</div>
+                        <div><strong>💳 Payment:</strong> ${order.paymentMethod}</div>
+                        <div><strong>⏰ Status:</strong> <span class="status-badge status-pending">Pending</span></div>
+                    </div>
+                    <button onclick="selectOrderForUpload('${order.reportId}')" class="btn" style="width: auto; padding: 10px 20px;">
+                        📤 Upload Report for ${order.reportId}
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function displayAllReports(orders) {
+            const container = document.getElementById('allReportsList');
+            
+            if (orders.length === 0) {
+                container.innerHTML = '<div class="card"><p style="text-align: center; color: #666;">No reports found</p></div>';
+                return;
+            }
+
+            container.innerHTML = orders.map(order => `
+                <div class="card">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                        <div><strong>📋 Report ID:</strong> ${order.reportId}</div>
+                        <div><strong>🏢 Company:</strong> ${order.companyName}</div>
+                        <div><strong>📱 Phone:</strong> ${order.phoneNumber}</div>
+                        <div><strong>📅 Order Date:</strong> ${new Date(order.orderDate).toLocaleDateString()}</div>
+                        <div><strong>⏰ Status:</strong> 
+                            <span class="status-badge ${order.status === 'completed' ? 'status-completed' : 'status-pending'}">
+                                ${order.status}
+                            </span>
+                        </div>
+                        ${order.status === 'completed' ? `<div><strong>📅 Completed:</strong> ${new Date(order.completedDate).toLocaleDateString()}</div>` : ''}
+                    </div>
+                    ${order.status === 'completed' && order.reportUrl ? `
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <a href="${order.reportUrl}" target="_blank" class="btn" style="width: auto; padding: 10px 20px; text-decoration: none;">
+                                👁️ View Report
+                            </a>
+                            <button onclick="deleteReport('${order.reportId}')" class="btn" style="width: auto; padding: 10px 20px; background: #dc3545;">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        let selectedOrderId = '';
+
+        function selectOrderForUpload(reportId) {
+            selectedOrderId = reportId;
+            document.getElementById('uploadArea').style.border = '3px solid #28a745';
+            document.getElementById('uploadArea').innerHTML = `
+                <div>
+                    <h4 style="font-size: 1.5rem; margin-bottom: 15px; color: #28a745;">📁 Upload Report for ${reportId}</h4>
+                    <p style="font-size: 1.1rem; color: #666;">Drop the completed analysis PDF here or click to browse</p>
+                    <p style="font-size: 0.9rem; color: #888; margin-top: 10px;">Supported format: PDF only • Max size: 10MB</p>
+                </div>
+                <input type="file" id="pdfFile" class="file-input" accept=".pdf">
+            `;
+            
+            // Re-attach event listeners
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('pdfFile');
+            uploadArea.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+        }
+
+        // File handling functions
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.target.classList.add('dragover');
+        }
+
+        function handleFileDrop(e) {
+            e.preventDefault();
+            e.target.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        async function handleFile(file) {
+            if (!selectedOrderId) {
+                showMessage('uploadMessage', '❌ Please select an order first.', 'error');
+                return;
+            }
+
+            if (file.type !== 'application/pdf') {
+                showMessage('uploadMessage', '❌ Please upload a PDF file only.', 'error');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) { // 10MB limit
+                showMessage('uploadMessage', '❌ File size must be less than 10MB.', 'error');
+                return;
+            }
+
+            showMessage('uploadMessage', '⏳ Uploading report...', 'info');
+
+            try {
+                // Convert file to base64 for storage (simplified approach)
+                const base64 = await fileToBase64(file);
+                const timestamp = new Date().toISOString();
+
+                // Update order with report data
+                const updateData = {
+                    status: 'completed',
+                    reportUrl: base64, // In production, upload to cloud storage
+                    completedDate: timestamp,
+                    fileName: file.name
+                };
+
+                await database.ref('orders/' + selectedOrderId).update(updateData);
+
+                showMessage('uploadMessage', `✅ Report uploaded successfully for ${selectedOrderId}!`, 'success');
+                
+                // Reset upload area
+                resetUploadArea();
+                selectedOrderId = '';
+                
+                // Reload admin dashboard
+                loadAdminDashboard();
+
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                showMessage('uploadMessage', '❌ Failed to upload report. Please try again.', 'error');
+            }
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        function resetUploadArea() {
+            document.getElementById('uploadArea').style.border = '3px dashed #2a5298';
+            document.getElementById('uploadArea').innerHTML = `
+                <div>
+                    <h4 style="font-size: 1.5rem; margin-bottom: 15px;">📁 Upload PDF Report</h4>
+                    <p style="font-size: 1.1rem; color: #666;">Drop your completed analysis PDF here or click to browse</p>
+                    <p style="font-size: 0.9rem; color: #888; margin-top: 10px;">Supported format: PDF only • Max size: 10MB</p>
+                </div>
+                <input type="file" id="pdfFile" class="file-input" accept=".pdf">
+            `;
+        }
+
+        async function deleteReport(reportId) {
+            if (confirm(`Are you sure you want to delete report ${reportId}?`)) {
+                try {
+                    await database.ref('orders/' + reportId).remove();
+                    showNotification('🗑️ Report deleted successfully!', 'success');
+                    loadAdminDashboard();
+                } catch (error) {
+                    console.error('Error deleting report:', error);
+                    showNotification('❌ Failed to delete report', 'error');
+                }
+            }
+        }
+
+        // Utility functions
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="message ${type}">${message}</div>`;
+            element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.innerHTML = `
+                <div style="color: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8'};">
+                    ${message}
+                </div>
+            `;
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // Auto-refresh admin dashboard every 30 seconds
+        setInterval(() => {
+            if (currentAdminSession && document.getElementById('adminContent').style.display !== 'none') {
+                loadAdminDashboard();
+            }
+        }, 30000);
+</script>
+</body>
+</html>
